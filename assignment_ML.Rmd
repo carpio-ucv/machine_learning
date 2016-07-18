@@ -1,37 +1,84 @@
 ---
-title: "machine_learning"
-author: "Juan Carpio"
+title: "Machine learning Assignment"
 date: "15 July 2016"
 output: github_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
 
-## R Markdown
+# 1-Introduction
+The goal of this project is to predict the manner in which people exercise.Data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants have been used to developed the predictive model. More information regading the data is available from the following [website](http://groupware.les.inf.puc-rio.br/har).
 
 
+### Running relevant libraries
+```{r , eval=TRUE, include=TRUE, echo=TRUE, warning=FALSE, results='hide', message=FALSE}
 
-```{r cars}
 library("data.table")
 library("caret")
 library("mlbench")
 library("dplyr")
+library("parallel")
+library("doParallel")
+```
 
-set.seed(673)
+#2- Loading and cleaning data
+```{r, eval=TRUE, include=TRUE, echo=TRUE, warning=FALSE, cache=TRUE}
 
-
-#Obtain Training data
+# TRAINING DATA
+## getting training data
 data.train<-read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"),na.strings = c("", "NA","#DIV/0!" ))
-
+## Filtering variables with more than 80% NAs values
 df.train<-data.train[ , colSums(is.na(data.train)) 
                       < nrow(data.train)*0.8]
+```
+
+# 3-How the model is built?
+The model is build by taking a training set, and splitting it into a new training/test sets. Then, the model is developed based on the new training data, and evaluated based on the new test data set. At the end, new values are predicted based on the "orininal" testing data set.
+
+### 3.1- Partition of the training data set 
+```{r , eval=TRUE, include=TRUE, echo=TRUE, warning=FALSE, results='hide', message=FALSE}
+
+inTrain  <- createDataPartition(df.train$classe, p=0.7, list=FALSE)
+train.set <- df.train[inTrain, ]
+test.set  <- df.train[-inTrain, ]
+dim(train.set)
+
+##define outcome/predictors
+x.train<-train.set[,-60]
+y.train<-train.set[,60]
+
+```
+
+### 3.2- cross validation and parallel processing
+In addition to the training data set partition previously presented, an additional cross validation tool is performed in the model estimation. Specifically, we have established a training control method in which the data set is split into 5 folds. This is crutial to avoid overfitting when estimating the final model. Since this is a process consuming high computational resources we have also establish a parallel processing, as indicated in the coding bellow:
+
+```{r , eval=TRUE, include=TRUE, echo=TRUE, warning=FALSE, results='hide', message=FALSE}
+
+## Configuring parallell processing
+cluster <- makeCluster(detectCores() - 1)
+registerDoParallel(cluster)
+
+##Configure trainControl object
+fit.control <- trainControl(method = "cv",
+                           number = 5,
+                           allowParallel = TRUE)
+```
+
+### Develop training model
+```{r, eval=FALSE}
+#rf.fit<-randomForest(x=x.tr,y=y.tr, do.trace= TRUE, prox=TRUE, 
+#                     ntree=10, trControl = fit.control)
+
+fit.rf<-train(x=x.train,y=y.train, method="rf", do.trace= TRUE, ntree=10, prox=TRUE,  trControl = fit.control)
+```
+
+
+
+```{r}
+set.seed(673)
 
 df.train<-sample_n(df.train,2000)
         
-x.tr<-df.train[,-60] #x.tr<-data.train[,-160]
-y.tr<-df.train[,60]
+
 
 
 #Obtain Testing data
@@ -55,33 +102,8 @@ levels(y.test) <- levels(y.tr)
 #confusionMatrix(pred_rf, reference = y.test)
 
 
-## Configuring parallell processing
-library("parallel")
-library("doParallel")
-
-cluster <- makeCluster(detectCores() - 1)
-registerDoParallel(cluster)
-
-####
-
-#Configure trainControl object
-
-fit.control <- trainControl(method = "cv",
-                           number = 10,
-                           allowParallel = TRUE)
-
-
 ```
 
-### Develop training model
-```{r, eval=FALSE}
-
-
-#rf.fit<-randomForest(x=x.tr,y=y.tr, do.trace= TRUE, prox=TRUE, 
-#                     ntree=10, trControl = fit.control)
-
-rf.fit2<-train(x=x.tr,y=y.tr, method="rf", do.trace= TRUE, ntree=10, prox=TRUE,  trControl = fit.control)
-```
 
 ##how you built your model, 
 
@@ -95,4 +117,3 @@ rf.fit2<-train(x=x.tr,y=y.tr, method="rf", do.trace= TRUE, ntree=10, prox=TRUE, 
 plot(pressure)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

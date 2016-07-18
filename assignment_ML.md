@@ -1,63 +1,38 @@
-machine\_learning
+Machine learning Assignment
 ================
-Juan Carpio
 15 July 2016
 
-R Markdown
-----------
+1-Introduction
+==============
+
+The goal of this project is to predict the manner in which people exercise.Data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants have been used to developed the predictive model. More information regading the data is available from the following website: [link](http://groupware.les.inf.puc-rio.br/har)
+
+### Running relevant libraries
 
 ``` r
 library("data.table")
-```
-
-    ## Warning: package 'data.table' was built under R version 3.2.5
-
-``` r
 library("caret")
-```
-
-    ## Warning: package 'caret' was built under R version 3.2.5
-
-    ## Loading required package: lattice
-
-    ## Loading required package: ggplot2
-
-    ## Warning: package 'ggplot2' was built under R version 3.2.3
-
-``` r
 library("mlbench")
+library("dplyr")
+library("parallel")
+library("doParallel")
 ```
 
-    ## Warning: package 'mlbench' was built under R version 3.2.5
+2- Loading and cleaning data
+============================
 
 ``` r
-library("dplyr")
+# TRAINING DATA
+## getting training data
+data.train<-read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"),na.strings = c("", "NA","#DIV/0!" ))
+## Filtering variables with more than 80% NAs values
+df.train<-data.train[ , colSums(is.na(data.train)) 
+                      < nrow(data.train)*0.8]
 ```
-
-    ## 
-    ## Attaching package: 'dplyr'
-
-    ## The following objects are masked from 'package:data.table':
-    ## 
-    ##     between, last
-
-    ## The following objects are masked from 'package:stats':
-    ## 
-    ##     filter, lag
-
-    ## The following objects are masked from 'package:base':
-    ## 
-    ##     intersect, setdiff, setequal, union
 
 ``` r
 set.seed(673)
 
-
-#Obtain Training data
-data.train<-read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"),na.strings = c("", "NA","#DIV/0!" ))
-
-df.train<-data.train[ , colSums(is.na(data.train)) 
-                      < nrow(data.train)*0.8]
 
 df.train<-sample_n(df.train,2000)
         
@@ -87,21 +62,8 @@ levels(y.test) <- levels(y.tr)
 
 
 ## Configuring parallell processing
-library("parallel")
-library("doParallel")
-```
 
-    ## Warning: package 'doParallel' was built under R version 3.2.5
 
-    ## Loading required package: foreach
-
-    ## Warning: package 'foreach' was built under R version 3.2.5
-
-    ## Loading required package: iterators
-
-    ## Warning: package 'iterators' was built under R version 3.2.3
-
-``` r
 cluster <- makeCluster(detectCores() - 1)
 registerDoParallel(cluster)
 
