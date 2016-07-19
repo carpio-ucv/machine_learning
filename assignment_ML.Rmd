@@ -1,5 +1,5 @@
 ---
-title: "Machine learning Assignment"
+title: "Machine Learning Assignment"
 date: "15 July 2016"
 output: github_document
 ---
@@ -18,6 +18,8 @@ library("mlbench")
 library("dplyr")
 library("parallel")
 library("doParallel")
+library("rattle")
+
 ```
 
 #2- Loading and cleaning data
@@ -29,27 +31,44 @@ data.train<-read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pm
 ## Filtering variables with more than 80% NAs values
 df.train<-data.train[ , colSums(is.na(data.train)) 
                       < nrow(data.train)*0.8]
+# remove identification only variables (columns 1 to 5)
+df.train <- df.train[, -(1:5)]
+dim(df.train)
+
+# TESTING DATA
+## getting testing data
+data.test<-read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+df.test<-data.test[ , colSums(is.na(data.test)) 
+                      < nrow(data.test)*0.8]
+# remove identification only variables (columns 1 to 5)
+testing.x <- df.test[, -(1:5)]
+dim(testing.x)
+
+#factor variables with different levels
+levels(testing.x$cvtd_timestamp) <- levels(df.train$cvtd_timestamp)
+levels(testing.x$new_window) <- levels(df.train$new_window)
+
 ```
 
 # 3-How the model is built?
-The model is build by taking a training set, and splitting it into a new training/test sets. Then, the model is developed based on the new training data, and evaluated based on the new test data set. At the end, new values are predicted based on the "orininal" testing data set.
+The model has been built by taking a training set, and splitting it into new training/test sets. Then, the model was developed based on the new training data, and evaluated based on the new test data set. At the end, new values are predicted based on the "orininal" testing data set.
 
 ### 3.1- Partition of the training data set 
 ```{r , eval=TRUE, include=TRUE, echo=TRUE, warning=FALSE, results='hide', message=FALSE}
 
-inTrain  <- createDataPartition(df.train$classe, p=0.7, list=FALSE)
+inTrain  <- createDataPartition(df.train$classe, p=0.6, list=FALSE)
 train.set <- df.train[inTrain, ]
 test.set  <- df.train[-inTrain, ]
 dim(train.set)
 
 ##define outcome/predictors
-x.train<-train.set[,-60]
-y.train<-train.set[,60]
+x.train<-train.set[,-55]
+y.train<-train.set[,55]
 
 ```
 
-### 3.2- cross validation and parallel processing
-In addition to the training data set partition previously presented, an additional cross validation tool is performed in the model estimation. Specifically, we have established a training control method in which the data set is split into 5 folds. This is crutial to avoid overfitting when estimating the final model. Since this is a process consuming high computational resources we have also establish a parallel processing, as indicated in the coding bellow:
+### 3.2- Cross validation and parallel processing
+In addition to the training data set partition previously presented, an additional cross validation tool is performed in the model estimation. Specifically, we have established a training control method in which the data set is split into 3 folds. This is crutial to avoid overfitting when estimating the final model. Since this is a process consuming high computational resources we have also establish a parallel processing, as indicated in the coding bellow:
 
 ```{r , eval=TRUE, include=TRUE, echo=TRUE, warning=FALSE, results='hide', message=FALSE}
 
@@ -59,61 +78,61 @@ registerDoParallel(cluster)
 
 ##Configure trainControl object
 fit.control <- trainControl(method = "cv",
-                           number = 5,
+                           number = 3,
                            allowParallel = TRUE)
 ```
 
-### Develop training model
-```{r, eval=FALSE}
-#rf.fit<-randomForest(x=x.tr,y=y.tr, do.trace= TRUE, prox=TRUE, 
-#                     ntree=10, trControl = fit.control)
-
-fit.rf<-train(x=x.train,y=y.train, method="rf", do.trace= TRUE, ntree=10, prox=TRUE,  trControl = fit.control)
-```
-
-
-
-```{r}
+# 4- Develop training model
+We have choosen a Random Forest model which is highly accurate. 
+```{r, eval=TRUE, include=TRUE, echo=TRUE, warning=FALSE, message=FALSE, cache=TRUE }
 set.seed(673)
+fit.rf<-train(x=x.train,y=y.train, method="rf", do.trace= TRUE, ntree=10, prox=TRUE,  trControl = fit.control)
 
-df.train<-sample_n(df.train,2000)
-        
+fit.rf
+```
 
 
+# 5- Out of sample error
+In order to estimate the out sample error we first calculated the accuracy of the model. That can be done by using the testing model to predict the outcome based on the testing sub set obtained from the training data set. Then, such predictions are compared with the actual outcome in the testing data sub set. Finally, the out of sample error is equal to 1 - accuracy, in this case, 0.5%. Bellow the coding with the datails. 
+```{r, eval=TRUE, include=TRUE, echo=TRUE, warning=FALSE, message=FALSE, cache=TRUE}
+#Accuracy
+pred_train <- predict( fit.rf, test.set)
+confusionMatrix(pred_train, reference = test.set$classe)
 
-#Obtain Testing data
-data.test<-read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
-df.test<-data.test[ , colSums(is.na(data.test)) 
-                      < nrow(data.test)*0.8]
-x.test<-df.test[,-60]
-y.test<-df.test[,60]
-
-#testing
-set.seed(62433)
-
-#factor variables
-levels(x.test$cvtd_timestamp) <- levels(df.train$cvtd_timestamp)
-levels(x.test$new_window) <- levels(df.train$new_window)
-levels(y.test) <- levels(y.tr)
-
-#prediction 
-
-#pred_rf <- predict(rf.fit, x.test)
-#confusionMatrix(pred_rf, reference = y.test)
-
+#OOS Error
+missClass = function(values, predicted) {
+  sum(predicted != values) / length(values)
+}
+OOS_er = missClass(test.set$classe, pred_train)
+OOS_er*100
 
 ```
 
 
-##how you built your model, 
+# 6- Model predictions
+When using the Testing data set, the estimated model resulted to be highly accurate to predict the outcomes provided in the course quiz. 
+```{r, eval=TRUE, include=TRUE, echo=TRUE, warning=FALSE, message=FALSE, cache=TRUE}
 
-##how you used cross validation, 
+### predictions
+predict(fit.rf, testing.x)
+```
 
-## what you think the expected out of sample error is, and 
 
-## why you made the choices you did.
+# 7- Why I made the choices I did?
+One of the main decisions I made was to select the type of predictive model to be fitted. I choose randome forest, first because it is one of the most accurate, and the overfitting associated risks can be addressed by implementing cross validatiopn. Second,n the original paper used a random forest model with 10 trees, and we decided to replicate such conditions. 
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+In addition, we chose to use only 3 folds in the cross validation of the model training, because it provides enough accuracy and use less computational resources.  
+
+# 8- Additional Figures
+```{r, eval=TRUE, include=TRUE, echo=TRUE, warning=FALSE, message=FALSE, cache=TRUE}
+
+##Model plot
+plot(fit.rf)
+
+##Model Error
+plot(fit.rf$finalModel)
+
+##Top 15 variables by importance
+plot(varImp(fit.rf), top = 10)
 ```
 
