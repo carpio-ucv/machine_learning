@@ -1,7 +1,7 @@
 ---
 title: "Machine Learning Assignment"
 date: "15 July 2016"
-output: github_document
+output: html_document
 ---
 
 

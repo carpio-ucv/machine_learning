@@ -1,0 +1,12 @@
+base
+data.table
+lattice
+ggplot2
+caret
+mlbench
+dplyr
+foreach
+iterators
+doParallel
+rattle
+randomForest
